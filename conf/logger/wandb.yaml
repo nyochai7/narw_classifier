@@ -1,0 +1,6 @@
+kind: wandb
+project: narw-classifier
+run_name: null         # null -> wandb auto-names
+tags: []
+save_dir: outputs/wandb
+offline: false

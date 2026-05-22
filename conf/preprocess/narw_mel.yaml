@@ -1,0 +1,12 @@
+# Audio -> log-mel -> 3-channel image preprocessor for the EfficientNet-B3 baseline.
+# Native sample rate (no resampling). Spec lives in CLAUDE.md "Preprocessing pipelines".
+
+sample_rate: 2000    # native rate of the NARW dataset
+n_fft: 256
+win_length: 256      # Hann (default in torchaudio.transforms.MelSpectrogram)
+hop_length: 64       # -> ~63 time frames over a 2-s clip
+n_mels: 64
+f_min: 30.0
+f_max: 1000.0        # narrow band tuned for NARW upcalls
+image_size: 300      # EfficientNet-B3 native input
+top_db: 80.0

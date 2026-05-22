@@ -1,0 +1,16 @@
+# Top-level Hydra config. Override any field via CLI, e.g.
+#   uv run python -m narw_classifier.training.train trainer.max_epochs=20 model=efficientnet_b3_full_finetune
+
+defaults:
+  - data: baseline
+  - preprocess: narw_mel
+  - model: efficientnet_b3_linear_probe
+  - trainer: default
+  - logger: wandb
+  - _self_
+
+seed: 42
+
+hydra:
+  run:
+    dir: outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}

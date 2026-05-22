@@ -1,0 +1,31 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# --- uv / venv ---
+.venv/
+.python-version
+
+# --- Data & artifacts ---
+/data/
+/outputs/
+/checkpoints/
+/wandb/
+/mlruns/
+/lightning_logs/
+
+# --- Notebook scratch ---
+.ipynb_checkpoints/
+
+# --- OS / editor ---
+.DS_Store
+.vscode/
+.idea/
+
+# --- Secrets ---
+.env
+kaggle.json

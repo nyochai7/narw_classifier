@@ -1,0 +1,7 @@
+# EfficientNet-B3 baseline, full fine-tune (all params unfrozen).
+
+freeze_mode: full_finetune
+pretrained: true
+lr: 1.0e-4         # smaller LR for full fine-tune; tune via sweep
+weight_decay: 1.0e-4
+scheduler: cosine

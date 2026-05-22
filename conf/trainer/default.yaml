@@ -1,0 +1,8 @@
+max_epochs: 10
+accelerator: auto      # auto-detect cuda / mps / cpu
+devices: 1
+precision: 16-mixed    # bf16-mixed on Ampere+; safe default
+log_every_n_steps: 50
+gradient_clip_val: null
+fast_dev_run: false
+deterministic: true

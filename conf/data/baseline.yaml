@@ -1,0 +1,24 @@
+# Data loading config.
+
+# Path to the directory that contains `train2/`, `test2/`, `sampleSubmission.csv`.
+# On Lightning AI, override at runtime: `data.root=/teamspace/.../narw`.
+root: data/raw
+train_subdir: train2
+
+# Native 2 kHz, 2 s clips — what the dataset already provides. No resampling for the
+# EfficientNet baseline. The Perch pipeline (separate, scaffolded later) handles its own
+# resample + pitch-shift.
+target_sample_rate: 2000
+target_duration_s: 2.0
+
+# Split
+val_fraction: 0.2
+split_seed: 42
+
+# Loader
+batch_size: 32
+num_workers: 4
+pin_memory: true
+
+# WeightedRandomSampler -> class-balanced batches.
+balanced_train_sampler: true

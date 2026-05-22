@@ -1,0 +1,8 @@
+# EfficientNet-B3 baseline, linear probe.
+# Backbone is frozen; only the classification head trains.
+
+freeze_mode: linear_probe
+pretrained: true
+lr: 1.0e-3
+weight_decay: 1.0e-4
+scheduler: null    # one of: null, cosine
