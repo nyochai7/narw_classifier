@@ -1,0 +1,28 @@
+# Top-level Hydra config for the Perch v2 pipeline.
+# Used by both `narw_classifier.perch.extract` and `narw_classifier.perch.train`.
+
+defaults:
+  - data: baseline
+  - preprocess: perch
+  - model: perch_linear_probe
+  - trainer: default
+  - logger: wandb
+  - _self_
+
+# Override defaults that are EfficientNet-specific.
+data:
+  batch_size: 256       # larger: embeddings are tiny, training is cheap
+  num_workers: 0        # embeddings live in RAM, no IO bottleneck
+
+embeddings:
+  cache_dir: data/embeddings/perch_v2
+  onnx_dir: data/models
+  onnx_file: perch_v2.onnx
+  batch_size: 16        # ONNX inference batch size (CPU memory: 16 * 160k * 4B = 10 MB)
+
+seed: 42
+ckpt_path: null
+
+hydra:
+  run:
+    dir: outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}_perch

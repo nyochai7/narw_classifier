@@ -1,0 +1,8 @@
+# Perch v2 preprocessing.
+# Native 2 kHz -> resample 32 kHz -> librosa.effects.pitch_shift(+36 semitones,
+# duration-preserving) -> symmetric zero-pad/center to 5 s (160 000 samples).
+# +3 octaves maps NARW upcalls (50-250 Hz) into Perch's training band (400-2000 Hz).
+
+sample_rate: 32000
+n_samples: 160000               # 5 s @ 32 kHz; matches Perch's ONNX input shape
+pitch_shift_semitones: 36       # +3 octaves

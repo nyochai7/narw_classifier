@@ -1,0 +1,5 @@
+# Linear probe on Perch v2 embeddings: Linear(1536, 1) + BCE-with-logits.
+
+embedding_dim: 1536
+lr: 1.0e-3
+weight_decay: 1.0e-4
