@@ -8,7 +8,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from narw_classifier.perch.embedder import (
+from narw_classifier.models.perch_embedder import (
     DEFAULT_ONNX_FILE,
     EMBEDDING_DIM,
     PerchEmbedder,

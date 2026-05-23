@@ -9,6 +9,8 @@ defaults:
   - logger: wandb
   - _self_
 
+pipeline: efficientnet
+
 seed: 42
 
 # Resume training from a saved checkpoint, e.g.

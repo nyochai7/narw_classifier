@@ -1,6 +1,6 @@
 import torch
 
-from narw_classifier.perch.linear_probe import PerchLinearProbe
+from narw_classifier.models.perch_linear_probe import PerchLinearProbe
 
 
 class TestPerchLinearProbe:

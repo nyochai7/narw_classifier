@@ -3,7 +3,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from narw_classifier.perch.preprocess import (
+from narw_classifier.data.perch_preprocess import (
     PERCH_N_SAMPLES,
     PERCH_SAMPLE_RATE,
     pad_or_center,

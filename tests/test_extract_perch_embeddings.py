@@ -7,8 +7,11 @@ from pathlib import Path
 
 import numpy as np
 
-from narw_classifier.perch.extract import _extract_embeddings, _PerchPreprocessDataset
-from narw_classifier.perch.preprocess import PERCH_N_SAMPLES
+from narw_classifier.data.perch_preprocess import PERCH_N_SAMPLES
+from narw_classifier.training.extract_perch_embeddings import (
+    _extract_embeddings,
+    _PerchPreprocessDataset,
+)
 
 
 class _StubEmbedder:

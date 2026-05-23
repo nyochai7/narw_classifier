@@ -18,7 +18,7 @@ import torch
 from torch.utils.data import DataLoader, TensorDataset
 
 from ..utils.samplers import make_balanced_sampler
-from .cache import load_split
+from .embeddings_cache import load_split
 
 
 class PerchEmbeddingsDataModule(pl.LightningDataModule):
@@ -43,7 +43,7 @@ class PerchEmbeddingsDataModule(pl.LightningDataModule):
             if not (self.cache_dir / name).exists():
                 raise FileNotFoundError(
                     f"Embedding cache not found: {self.cache_dir / name}. "
-                    "Run `uv run python -m narw_classifier.perch.extract` first."
+                    "Run `uv run python -m narw_classifier.training.extract_perch_embeddings` first."
                 )
 
     def setup(self, stage: str | None = None) -> None:

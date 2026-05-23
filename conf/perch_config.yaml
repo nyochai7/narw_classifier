@@ -1,5 +1,6 @@
 # Top-level Hydra config for the Perch v2 pipeline.
-# Used by both `narw_classifier.perch.extract` and `narw_classifier.perch.train`.
+# Used by both `narw_classifier.training.extract_perch_embeddings` and
+# `narw_classifier.training.train --config-name=perch_config`.
 
 defaults:
   - data: baseline
@@ -25,6 +26,8 @@ embeddings:
   # *slows* Perch v2 down (only 448 of 725 ops supported → partition overhead);
   # set `embeddings.providers=[CPUExecutionProvider]` on Mac to skip it.
   providers: null
+
+pipeline: perch
 
 seed: 42
 ckpt_path: null

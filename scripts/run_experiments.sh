@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Run the three baseline experiments end-to-end on Lightning AI.
+# Run the three baseline experiments end-to-end.
 #
 # Assumes you have already:
 #   - cloned the repo and run `uv sync`
@@ -23,11 +23,12 @@ uv run python -m narw_classifier.training.train \
 step "Experiment 2 — Perch v2 linear probe, NO pitch shift"
 
 step "  2a) extract embeddings (pitch_shift_semitones=0)"
-uv run python -m narw_classifier.perch.extract \
+uv run python -m narw_classifier.training.extract_perch_embeddings \
     preprocess.pitch_shift_semitones=0
 
 step "  2b) train linear probe on cached embeddings"
-uv run python -m narw_classifier.perch.train \
+uv run python -m narw_classifier.training.train \
+    --config-name=perch_config \
     preprocess.pitch_shift_semitones=0 \
     trainer.max_epochs=10
 
@@ -35,10 +36,11 @@ uv run python -m narw_classifier.perch.train \
 step "Experiment 3 — Perch v2 linear probe, pitch_shift_semitones=36"
 
 step "  3a) extract embeddings (pitch_shift_semitones=36, default)"
-uv run python -m narw_classifier.perch.extract
+uv run python -m narw_classifier.training.extract_perch_embeddings
 
 step "  3b) train linear probe on cached embeddings"
-uv run python -m narw_classifier.perch.train \
+uv run python -m narw_classifier.training.train \
+    --config-name=perch_config \
     trainer.max_epochs=10
 
 step "All three experiments complete. Compare runs in W&B project: narw-classifier"

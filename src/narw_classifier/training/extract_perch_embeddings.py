@@ -2,11 +2,10 @@
 
 Run::
 
-    uv run python -m narw_classifier.perch.extract
+    uv run python -m narw_classifier.training.extract_perch_embeddings
 
 One-time per (preprocess config, split config). Outputs:
-    {embeddings.cache_dir}/{split_strategy}/train.npz
-    {embeddings.cache_dir}/{split_strategy}/val.npz
+    {embeddings.cache_dir}/{split_strategy}/pitch_shift_{N}/{train,val}.npz
 
 Preprocessing (resample + librosa pitch_shift + pad) is the bottleneck; it runs
 across `embeddings.num_workers` CPU processes via a PyTorch DataLoader, while
@@ -26,11 +25,11 @@ from omegaconf import DictConfig, OmegaConf
 from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
 
+from ..data.embeddings_cache import save_split
 from ..data.manifest import build_train_manifest
+from ..data.perch_preprocess import preprocess_for_perch
 from ..data.splits import day_stratified_split, stratified_split
-from .cache import save_split
-from .embedder import PerchEmbedder, download_perch_onnx
-from .preprocess import preprocess_for_perch
+from ..models.perch_embedder import PerchEmbedder, download_perch_onnx
 
 log = logging.getLogger(__name__)
 

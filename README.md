@@ -58,9 +58,9 @@ uv run python -m narw_classifier.training.train \
     model=efficientnet_b3_linear_probe trainer.max_epochs=10
 
 # Experiment 2 (or 3, swap the pitch shift): Perch v2 linear probe
-uv run python -m narw_classifier.perch.extract \
+uv run python -m narw_classifier.training.extract_perch_embeddings \
     preprocess.pitch_shift_semitones=0          # or 36
-uv run python -m narw_classifier.perch.train \
+uv run python -m narw_classifier.training.train --config-name=perch_config \
     preprocess.pitch_shift_semitones=0          # or 36
     trainer.max_epochs=10
 ```
@@ -113,10 +113,13 @@ uv run python -m narw_classifier.training.train \
 │   ├── trainer/default.yaml           # epochs, accelerator, precision
 │   └── logger/                        # wandb.yaml + none.yaml
 ├── src/narw_classifier/
-│   ├── data/                          # dataset, datamodule, manifest, splits
-│   ├── models/                        # baseline LightningModule + Mel preprocessor
-│   ├── perch/                         # Perch ONNX wrapper + linear-probe pipeline
-│   ├── training/train.py              # Hydra-driven baseline training entrypoint
+│   ├── data/                          # NARW dataset, datamodule, manifest, splits,
+│   │                                  # Perch audio preprocessing + embedding cache,
+│   │                                  # Perch embeddings datamodule
+│   ├── models/                        # EfficientNet baseline + Mel preprocessor,
+│   │                                  # Perch ONNX embedder + linear-probe LightningModule
+│   ├── training/                      # train.py (one entrypoint, both pipelines),
+│   │                                  # extract_perch_embeddings.py
 │   ├── analysis/                      # predictions, metrics, plots, callback
 │   └── utils/                         # filenames, lightning helpers, balanced sampler
 ├── tests/                             # pytest — every module has tests
