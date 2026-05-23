@@ -7,6 +7,10 @@ Run::
 One-time per (preprocess config, split config). Outputs:
     {embeddings.cache_dir}/{split_strategy}/train.npz
     {embeddings.cache_dir}/{split_strategy}/val.npz
+
+Preprocessing (resample + librosa pitch_shift + pad) is the bottleneck; it runs
+across `embeddings.num_workers` CPU processes via a PyTorch DataLoader, while
+ONNX inference stays serial in the main process.
 """
 
 from __future__ import annotations
@@ -16,8 +20,10 @@ from pathlib import Path
 
 import hydra
 import numpy as np
+import torch
 from hydra.utils import to_absolute_path
 from omegaconf import DictConfig, OmegaConf
+from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
 
 from ..data.manifest import build_train_manifest
@@ -37,6 +43,40 @@ def _select_splitter(name: str):
     raise ValueError(f"Unknown split_strategy: {name!r}")
 
 
+class _PerchPreprocessDataset(Dataset):
+    """Returns the preprocessed 5-s 32-kHz waveform for file ``i``.
+
+    Doing this in a Dataset (not inline) lets the DataLoader fan preprocessing
+    out across worker processes — librosa's pitch_shift is single-threaded and
+    is otherwise the wall-clock bottleneck.
+    """
+
+    def __init__(
+        self,
+        files: list[str],
+        data_dir: Path,
+        pitch_shift_semitones: float,
+        sample_rate: int,
+        n_samples: int,
+    ) -> None:
+        self.files = files
+        self.data_dir = data_dir
+        self.pitch_shift_semitones = pitch_shift_semitones
+        self.sample_rate = sample_rate
+        self.n_samples = n_samples
+
+    def __len__(self) -> int:
+        return len(self.files)
+
+    def __getitem__(self, i: int) -> np.ndarray:
+        return preprocess_for_perch(
+            self.data_dir / self.files[i],
+            pitch_shift_semitones=self.pitch_shift_semitones,
+            target_sample_rate=self.sample_rate,
+            target_n_samples=self.n_samples,
+        )
+
+
 def _extract_embeddings(
     embedder: PerchEmbedder,
     data_dir: Path,
@@ -45,25 +85,25 @@ def _extract_embeddings(
     sample_rate: int,
     n_samples: int,
     batch_size: int,
+    num_workers: int,
 ) -> np.ndarray:
+    ds = _PerchPreprocessDataset(files, data_dir, pitch_shift_semitones, sample_rate, n_samples)
+    loader = DataLoader(
+        ds,
+        batch_size=batch_size,
+        num_workers=num_workers,
+        shuffle=False,
+        pin_memory=False,
+        persistent_workers=num_workers > 0,
+    )
     n = len(files)
     out = np.zeros((n, 1536), dtype=np.float32)
-    buf: list[np.ndarray] = []
-    idxs: list[int] = []
-    for i, fname in enumerate(tqdm(files, desc="extract")):
-        y = preprocess_for_perch(
-            data_dir / fname,
-            pitch_shift_semitones=pitch_shift_semitones,
-            target_sample_rate=sample_rate,
-            target_n_samples=n_samples,
-        )
-        buf.append(y)
-        idxs.append(i)
-        if len(buf) == batch_size:
-            out[idxs] = embedder.embed(np.stack(buf))
-            buf, idxs = [], []
-    if buf:
-        out[idxs] = embedder.embed(np.stack(buf))
+    pos = 0
+    for batch in tqdm(loader, desc="extract", total=len(loader)):
+        # default_collate gives us a torch.Tensor (B, n_samples)
+        arr = batch.numpy() if isinstance(batch, torch.Tensor) else np.stack(batch)
+        out[pos : pos + len(arr)] = embedder.embed(arr)
+        pos += len(arr)
     return out
 
 
@@ -115,6 +155,7 @@ def main(cfg: DictConfig) -> None:
             sample_rate=cfg.preprocess.sample_rate,
             n_samples=cfg.preprocess.n_samples,
             batch_size=cfg.embeddings.batch_size,
+            num_workers=cfg.embeddings.num_workers,
         )
         out_file = cache_dir / f"{split_name}.npz"
         save_split(out_file, emb, np.array(split_labels), split_files)
