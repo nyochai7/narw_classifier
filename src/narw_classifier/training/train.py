@@ -25,11 +25,13 @@ Resume a run by pointing ``ckpt_path`` at a saved checkpoint::
 from __future__ import annotations
 
 import logging
+import pathlib
 from datetime import datetime
 from pathlib import Path
 
 import hydra
 import pytorch_lightning as pl
+import torch.serialization
 from hydra.utils import to_absolute_path
 from omegaconf import DictConfig, OmegaConf
 
@@ -40,6 +42,14 @@ from ..models.baseline import BaselineEfficientNet
 from ..models.perch_linear_probe import PerchLinearProbe
 from ..models.preprocess import MelImagePreprocessor
 from ..utils.lightning import build_checkpoint_callback, build_logger, format_lr
+
+# Our DataModules save `cache_dir` etc. as ``pathlib.PosixPath`` hyperparameters;
+# PyTorch 2.6+ defaults torch.load to ``weights_only=True``, which rejects them.
+# These checkpoints are our own — allowlisting is safe and lets
+# ``trainer.test(ckpt_path="best")`` reload the best.ckpt without crashing.
+torch.serialization.add_safe_globals(
+    [pathlib.PosixPath, pathlib.WindowsPath, pathlib.PurePosixPath]
+)
 
 log = logging.getLogger(__name__)
 
