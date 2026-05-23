@@ -34,8 +34,10 @@ def _format_lr(lr: float) -> str:
 
 def default_run_name(cfg: DictConfig, now: datetime | None = None) -> str:
     ts = (now or datetime.now()).strftime("%H%M%S")
+    shift = int(cfg.preprocess.pitch_shift_semitones)
+    shift_tag = f"shift{shift}" if shift else "noshift"
     return (
-        f"perch_v2_linear"
+        f"perch_v2_linear_{shift_tag}"
         f"_lr{_format_lr(cfg.model.lr)}"
         f"_bs{cfg.data.batch_size}"
         f"_e{cfg.trainer.max_epochs}"
@@ -80,7 +82,10 @@ def main(cfg: DictConfig) -> None:
     log.info("Resolved config:\n%s", OmegaConf.to_yaml(cfg, resolve=True))
     pl.seed_everything(cfg.seed, workers=True)
 
-    cache_dir = Path(to_absolute_path(cfg.embeddings.cache_dir)) / cfg.data.split_strategy
+    shift_tag = f"pitch_shift_{int(cfg.preprocess.pitch_shift_semitones)}"
+    cache_dir = (
+        Path(to_absolute_path(cfg.embeddings.cache_dir)) / cfg.data.split_strategy / shift_tag
+    )
     datamodule = PerchEmbeddingsDataModule(
         cache_dir=cache_dir,
         batch_size=cfg.data.batch_size,

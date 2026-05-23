@@ -116,7 +116,10 @@ def main(cfg: DictConfig) -> None:
     if not train_dir.is_dir():
         raise FileNotFoundError(f"Train directory not found: {train_dir}")
 
-    cache_dir = Path(to_absolute_path(cfg.embeddings.cache_dir)) / cfg.data.split_strategy
+    shift_tag = f"pitch_shift_{int(cfg.preprocess.pitch_shift_semitones)}"
+    cache_dir = (
+        Path(to_absolute_path(cfg.embeddings.cache_dir)) / cfg.data.split_strategy / shift_tag
+    )
     onnx_dir = Path(to_absolute_path(cfg.embeddings.onnx_dir))
 
     files, labels = build_train_manifest(train_dir)
