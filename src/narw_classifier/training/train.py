@@ -67,6 +67,7 @@ def _build_efficientnet(cfg: DictConfig) -> tuple[pl.LightningDataModule, pl.Lig
         target_sample_rate=cfg.preprocess.sample_rate,
         target_duration_s=cfg.data.target_duration_s,
         val_fraction=cfg.data.val_fraction,
+        test_fraction=cfg.data.test_fraction,
         split_seed=cfg.data.split_seed,
         split_strategy=cfg.data.split_strategy,
         batch_size=cfg.data.batch_size,
@@ -111,7 +112,10 @@ def _build_perch(cfg: DictConfig) -> tuple[pl.LightningDataModule, pl.LightningM
         batch_size=cfg.data.batch_size,
         num_workers=cfg.data.num_workers,
         balanced_train_sampler=cfg.data.balanced_train_sampler,
-        seed=cfg.data.split_seed,
+        val_fraction=cfg.data.val_fraction,
+        test_fraction=cfg.data.test_fraction,
+        split_seed=cfg.data.split_seed,
+        split_strategy=cfg.data.split_strategy,
     )
     model = PerchLinearProbe(
         embedding_dim=cfg.model.embedding_dim,
@@ -181,6 +185,10 @@ def main(cfg: DictConfig) -> None:
     )
     ckpt_path = to_absolute_path(cfg.ckpt_path) if cfg.get("ckpt_path") else None
     trainer.fit(model, datamodule=datamodule, ckpt_path=ckpt_path)
+    # Final held-out evaluation. ckpt_path="best" loads the best.ckpt saved by
+    # build_checkpoint_callback() so test metrics correspond to the same model
+    # that goes into the report.
+    trainer.test(model, datamodule=datamodule, ckpt_path="best")
 
 
 if __name__ == "__main__":

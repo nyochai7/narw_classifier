@@ -15,7 +15,13 @@ import numpy as np
 import pytest
 
 from narw_classifier.analysis.artifacts import compute_summary, save_run_artifacts
-from narw_classifier.analysis.metrics import confusion_at_threshold, recall_at_fpr, threshold_sweep
+from narw_classifier.analysis.metrics import (
+    best_f1_from_sweep,
+    confusion_at_threshold,
+    confusion_metrics_at_threshold,
+    recall_at_fpr,
+    threshold_sweep,
+)
 from narw_classifier.analysis.predictions import load_predictions, save_predictions
 
 
@@ -85,12 +91,28 @@ class TestComputeSummary:
         probs, labels = _toy_predictions()
         summary = compute_summary(probs, labels)
         for k in (
+            # ranking metrics
             "auroc",
             "ap",
+            # threshold-0.5 metrics
             "accuracy_t0.5",
+            "precision_t0.5",
+            "recall_t0.5",
+            "f1_t0.5",
+            "fpr_t0.5",
+            # confusion counts at threshold 0.5
+            "tp_t0.5",
+            "fp_t0.5",
+            "fn_t0.5",
+            "tn_t0.5",
+            # operating-point metrics
             "recall_at_1pct_fpr",
             "threshold_at_1pct_fpr",
             "recall_at_5pct_fpr",
+            "threshold_at_5pct_fpr",
+            "best_f1",
+            "best_f1_threshold",
+            # dataset stats
             "n_samples",
             "positive_rate",
         ):
@@ -101,6 +123,29 @@ class TestComputeSummary:
         summary = compute_summary(probs, labels)
         assert summary["n_samples"] == 100
         assert summary["positive_rate"] == pytest.approx(0.2)
+
+    def test_confusion_counts_sum_to_n_samples(self):
+        probs, labels = _toy_predictions()
+        s = compute_summary(probs, labels)
+        assert s["tp_t0.5"] + s["fp_t0.5"] + s["fn_t0.5"] + s["tn_t0.5"] == s["n_samples"]
+
+
+class TestConfusionMetricsAtThreshold:
+    def test_perfect_classifier_metrics(self):
+        probs = np.array([0.1, 0.2, 0.8, 0.9])
+        labels = np.array([0, 0, 1, 1])
+        m = confusion_metrics_at_threshold(probs, labels, threshold=0.5)
+        assert m["tp"] == 2 and m["tn"] == 2
+        assert m["fp"] == 0 and m["fn"] == 0
+        assert m["precision"] == 1.0 and m["recall"] == 1.0 and m["f1"] == 1.0
+
+
+class TestBestF1FromSweep:
+    def test_returns_threshold_in_range(self):
+        probs, labels = _toy_predictions()
+        f1, t = best_f1_from_sweep(probs, labels)
+        assert 0.0 <= f1 <= 1.0
+        assert 0.0 <= t <= 1.0
 
 
 class TestPredictionsCache:

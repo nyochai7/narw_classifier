@@ -92,7 +92,7 @@ class TestEvalArtifactsCallback:
     def test_writes_all_expected_files_at_end_of_training(self, hydra_run_dir: Path):
         trainer = _make_trainer()
         trainer.fit(_TinyClassifier(), datamodule=_TinyDataModule())
-        analysis = hydra_run_dir / "analysis"
+        analysis = hydra_run_dir / "analysis" / "val"
         for name in (
             "predictions.npz",
             "pr_curve.png",
@@ -105,7 +105,9 @@ class TestEvalArtifactsCallback:
     def test_predictions_npz_matches_val_set_size(self, hydra_run_dir: Path):
         trainer = _make_trainer()
         trainer.fit(_TinyClassifier(), datamodule=_TinyDataModule())
-        probs, labels, files = load_predictions(hydra_run_dir / "analysis" / "predictions.npz")
+        probs, labels, files = load_predictions(
+            hydra_run_dir / "analysis" / "val" / "predictions.npz"
+        )
         assert probs.shape == (64,)
         assert labels.shape == (64,)
         assert files is None  # _TinyDataModule has val_files=[] (no filenames)
@@ -114,5 +116,5 @@ class TestEvalArtifactsCallback:
         val_files = [f"clip_{i:03d}.aif" for i in range(64)]
         trainer = _make_trainer()
         trainer.fit(_TinyClassifier(), datamodule=_TinyDataModule(val_files=val_files))
-        _, _, files = load_predictions(hydra_run_dir / "analysis" / "predictions.npz")
+        _, _, files = load_predictions(hydra_run_dir / "analysis" / "val" / "predictions.npz")
         assert files == val_files
