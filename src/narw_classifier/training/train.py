@@ -12,6 +12,7 @@ Override any field via Hydra CLI, e.g.::
 from __future__ import annotations
 
 import logging
+from datetime import datetime
 
 import hydra
 import pytorch_lightning as pl
@@ -68,15 +69,39 @@ def build_model(cfg: DictConfig, preprocessor: MelImagePreprocessor) -> Baseline
     )
 
 
+def _format_lr(lr: float) -> str:
+    """Compact LR string: 1e-3, 3.5e-4 (drops trailing zeros + leading exp zero)."""
+    mantissa, exp = f"{lr:.2e}".split("e")
+    mantissa = mantissa.rstrip("0").rstrip(".")
+    return f"{mantissa}e{int(exp)}"
+
+
+def default_run_name(cfg: DictConfig, now: datetime | None = None) -> str:
+    """Build an informative W&B run name from the resolved cfg.
+
+    Format: ``{freeze_mode}_lr{lr}_bs{batch_size}_e{epochs}_{HHMMSS}``
+    Example: ``linear_probe_lr1e-3_bs32_e1_104242``
+    """
+    ts = (now or datetime.now()).strftime("%H%M%S")
+    return (
+        f"{cfg.model.freeze_mode}"
+        f"_lr{_format_lr(cfg.model.lr)}"
+        f"_bs{cfg.data.batch_size}"
+        f"_e{cfg.trainer.max_epochs}"
+        f"_{ts}"
+    )
+
+
 def build_logger(cfg: DictConfig):
     if cfg.logger.kind == "none":
         return False
     if cfg.logger.kind == "wandb":
         from pytorch_lightning.loggers import WandbLogger
 
+        name = cfg.logger.run_name or default_run_name(cfg)
         return WandbLogger(
             project=cfg.logger.project,
-            name=cfg.logger.run_name,
+            name=name,
             tags=list(cfg.logger.tags) if cfg.logger.tags else None,
             save_dir=cfg.logger.save_dir,
             offline=cfg.logger.offline,
