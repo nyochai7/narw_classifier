@@ -34,13 +34,10 @@ from .preprocess import preprocess_for_perch
 
 log = logging.getLogger(__name__)
 
-
-def _select_splitter(name: str):
-    if name == "day_stratified":
-        return day_stratified_split
-    if name == "random":
-        return stratified_split
-    raise ValueError(f"Unknown split_strategy: {name!r}")
+_SPLITTERS = {
+    "day_stratified": day_stratified_split,
+    "random": stratified_split,
+}
 
 
 class _PerchPreprocessDataset(Dataset):
@@ -126,7 +123,12 @@ def main(cfg: DictConfig) -> None:
     if len(files) == 0:
         raise RuntimeError(f"No labeled .aif files found in {train_dir}")
 
-    splitter = _select_splitter(cfg.data.split_strategy)
+    splitter = _SPLITTERS.get(cfg.data.split_strategy)
+    if splitter is None:
+        raise ValueError(
+            f"Unknown split_strategy: {cfg.data.split_strategy!r} "
+            f"(expected one of {sorted(_SPLITTERS)!r})"
+        )
     tr_files, tr_labels, va_files, va_labels = splitter(
         files=files,
         labels=labels,

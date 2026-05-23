@@ -15,22 +15,10 @@ from pathlib import Path
 import numpy as np
 import pytorch_lightning as pl
 import torch
-from torch.utils.data import DataLoader, TensorDataset, WeightedRandomSampler
+from torch.utils.data import DataLoader, TensorDataset
 
+from ..utils.samplers import make_balanced_sampler
 from .cache import load_split
-
-
-def _make_balanced_sampler(labels: np.ndarray, seed: int) -> WeightedRandomSampler:
-    counts = np.bincount(labels, minlength=2).astype(np.float64)
-    if (counts == 0).any():
-        raise ValueError(f"Need both classes present; got counts={counts.tolist()}")
-    class_weight = 1.0 / counts
-    weights = torch.tensor([class_weight[y] for y in labels], dtype=torch.double)
-    g = torch.Generator()
-    g.manual_seed(seed)
-    return WeightedRandomSampler(
-        weights=weights, num_samples=len(weights), replacement=True, generator=g
-    )
 
 
 class PerchEmbeddingsDataModule(pl.LightningDataModule):
@@ -75,7 +63,7 @@ class PerchEmbeddingsDataModule(pl.LightningDataModule):
     def train_dataloader(self) -> DataLoader:
         assert self._train_ds is not None and self._train_labels is not None
         sampler = (
-            _make_balanced_sampler(self._train_labels, seed=self.hparams.seed)
+            make_balanced_sampler(self._train_labels, seed=self.hparams.seed)
             if self.hparams.balanced_train_sampler
             else None
         )

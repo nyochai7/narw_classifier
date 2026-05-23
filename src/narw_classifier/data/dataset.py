@@ -1,8 +1,10 @@
-"""NARW audio Dataset. Loads .aif clips, resamples to a target rate, pads/truncates to fixed length.
+"""NARW audio Dataset for the EfficientNet baseline.
 
-The Dataset returns *raw waveforms* (not spectrograms) so the same tensor can feed both the
-EfficientNet baseline (which computes its own log-mel inside the model) and an audio
-foundation model like Perch (which expects raw 32 kHz waveform).
+Each ``__getitem__`` returns ``(waveform, label)`` where ``waveform`` is a 1-D float32
+tensor at ``target_sample_rate`` (default 2 kHz native) of length ``target_n_samples``
+(default 4000 = 2 s). The LightningModule turns the raw waveform into a log-mel image
+inside its preprocessor. The dataset itself is preprocessing-agnostic — resample +
+right-pad-or-truncate are the only ops.
 """
 
 from __future__ import annotations

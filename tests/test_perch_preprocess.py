@@ -51,4 +51,4 @@ class TestPreprocessForPerch:
         # (the synthetic clip has a tone) and finite.
         out = preprocess_for_perch(synthetic_clip, pitch_shift_semitones=0)
         assert np.isfinite(out).all()
-        assert out.abs().sum() > 0 if hasattr(out, "abs") else (np.abs(out).sum() > 0)
+        assert np.abs(out).sum() > 0

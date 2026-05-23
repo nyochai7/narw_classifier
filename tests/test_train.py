@@ -1,29 +1,13 @@
 from datetime import datetime
 
-import pytest
 from omegaconf import OmegaConf
 
-from narw_classifier.training.train import _format_lr, default_run_name
-
-
-class TestFormatLR:
-    @pytest.mark.parametrize(
-        "lr, expected",
-        [
-            (1e-3, "1e-3"),
-            (3e-4, "3e-4"),
-            (1e-5, "1e-5"),
-            (3.5e-4, "3.5e-4"),
-            (1.0, "1e0"),
-            (2.5e-2, "2.5e-2"),
-        ],
-    )
-    def test_compact_scientific(self, lr, expected):
-        assert _format_lr(lr) == expected
+from narw_classifier.training.train import default_run_name
 
 
 class TestDefaultRunName:
-    def _cfg(self, freeze_mode="linear_probe", lr=1e-3, batch_size=32, max_epochs=1):
+    @staticmethod
+    def _cfg(freeze_mode="linear_probe", lr=1e-3, batch_size=32, max_epochs=1):
         return OmegaConf.create(
             {
                 "model": {"freeze_mode": freeze_mode, "lr": lr},

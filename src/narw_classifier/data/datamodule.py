@@ -8,28 +8,18 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import numpy as np
 import pytorch_lightning as pl
-import torch
-from torch.utils.data import DataLoader, WeightedRandomSampler
+from torch.utils.data import DataLoader
 
+from ..utils.samplers import make_balanced_sampler
 from .dataset import NARWAudioDataset
 from .manifest import build_train_manifest
 from .splits import day_stratified_split, stratified_split
 
-
-def _make_balanced_sampler(labels: list[int], seed: int) -> WeightedRandomSampler:
-    """Return a sampler whose draws are uniform over classes (not over examples)."""
-    counts = np.bincount(labels, minlength=2).astype(np.float64)
-    if (counts == 0).any():
-        raise ValueError(f"Need both classes present; got counts={counts.tolist()}")
-    class_weight = 1.0 / counts
-    weights = torch.tensor([class_weight[y] for y in labels], dtype=torch.double)
-    g = torch.Generator()
-    g.manual_seed(seed)
-    return WeightedRandomSampler(
-        weights=weights, num_samples=len(weights), replacement=True, generator=g
-    )
+_SPLITTERS = {
+    "day_stratified": day_stratified_split,
+    "random": stratified_split,
+}
 
 
 class NARWDataModule(pl.LightningDataModule):
@@ -69,14 +59,11 @@ class NARWDataModule(pl.LightningDataModule):
         files, labels = build_train_manifest(self.train_dir)
         if len(files) == 0:
             raise RuntimeError(f"No labeled .aif files found in {self.train_dir}")
-        if self.hparams.split_strategy == "day_stratified":
-            splitter = day_stratified_split
-        elif self.hparams.split_strategy == "random":
-            splitter = stratified_split
-        else:
+        splitter = _SPLITTERS.get(self.hparams.split_strategy)
+        if splitter is None:
             raise ValueError(
                 f"Unknown split_strategy: {self.hparams.split_strategy!r} "
-                f"(expected 'day_stratified' or 'random')"
+                f"(expected one of {sorted(_SPLITTERS)!r})"
             )
         tr_files, tr_labels, va_files, va_labels = splitter(
             files=files,
@@ -103,7 +90,7 @@ class NARWDataModule(pl.LightningDataModule):
     def train_dataloader(self) -> DataLoader:
         assert self._train_ds is not None, "Call setup() first"
         sampler = (
-            _make_balanced_sampler(self._train_labels, seed=self.hparams.split_seed)
+            make_balanced_sampler(self._train_labels, seed=self.hparams.split_seed)
             if self.hparams.balanced_train_sampler
             else None
         )

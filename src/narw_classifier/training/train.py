@@ -1,4 +1,4 @@
-"""Hydra-driven training entrypoint.
+"""Hydra-driven training entrypoint for the EfficientNet baseline.
 
 Run::
 
@@ -13,18 +13,16 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
-from pathlib import Path
 
 import hydra
 import pytorch_lightning as pl
-from hydra.core.hydra_config import HydraConfig
 from hydra.utils import to_absolute_path
 from omegaconf import DictConfig, OmegaConf
-from pytorch_lightning.callbacks import ModelCheckpoint
 
 from ..data.datamodule import NARWDataModule
 from ..models.baseline import BaselineEfficientNet
 from ..models.preprocess import MelImagePreprocessor
+from ..utils.lightning import build_checkpoint_callback, build_logger, format_lr
 
 log = logging.getLogger(__name__)
 
@@ -44,8 +42,8 @@ def build_preprocessor(cfg: DictConfig) -> MelImagePreprocessor:
 
 
 def build_datamodule(cfg: DictConfig) -> NARWDataModule:
-    # Hydra changes CWD to outputs/.../ — resolve `data.root` against the original CWD
-    # so relative paths in conf/data/*.yaml still work.
+    # Hydra changes CWD to outputs/<date>/<time>/ — resolve `data.root` against
+    # the original CWD so relative paths in conf/data/*.yaml keep working.
     return NARWDataModule(
         data_root=to_absolute_path(cfg.data.root),
         train_subdir=cfg.data.train_subdir,
@@ -73,60 +71,16 @@ def build_model(cfg: DictConfig, preprocessor: MelImagePreprocessor) -> Baseline
     )
 
 
-def _format_lr(lr: float) -> str:
-    """Compact LR string: 1e-3, 3.5e-4 (drops trailing zeros + leading exp zero)."""
-    mantissa, exp = f"{lr:.2e}".split("e")
-    mantissa = mantissa.rstrip("0").rstrip(".")
-    return f"{mantissa}e{int(exp)}"
-
-
 def default_run_name(cfg: DictConfig, now: datetime | None = None) -> str:
-    """Build an informative W&B run name from the resolved cfg.
-
-    Format: ``{freeze_mode}_lr{lr}_bs{batch_size}_e{epochs}_{HHMMSS}``
-    Example: ``linear_probe_lr1e-3_bs32_e1_104242``
-    """
+    """W&B run name: ``{freeze_mode}_lr{lr}_bs{bs}_e{epochs}_{HHMMSS}``."""
     ts = (now or datetime.now()).strftime("%H%M%S")
     return (
         f"{cfg.model.freeze_mode}"
-        f"_lr{_format_lr(cfg.model.lr)}"
+        f"_lr{format_lr(cfg.model.lr)}"
         f"_bs{cfg.data.batch_size}"
         f"_e{cfg.trainer.max_epochs}"
         f"_{ts}"
     )
-
-
-def build_callbacks(cfg: DictConfig) -> list:
-    """Save `best.ckpt` (highest val/auroc) + `last.ckpt` (for resume) into the Hydra run dir."""
-    output_dir = Path(HydraConfig.get().runtime.output_dir)
-    return [
-        ModelCheckpoint(
-            dirpath=output_dir / "checkpoints",
-            filename="best",
-            monitor="val/auroc",
-            mode="max",
-            save_top_k=1,
-            save_last=True,
-            auto_insert_metric_name=False,
-        ),
-    ]
-
-
-def build_logger(cfg: DictConfig):
-    if cfg.logger.kind == "none":
-        return False
-    if cfg.logger.kind == "wandb":
-        from pytorch_lightning.loggers import WandbLogger
-
-        name = cfg.logger.run_name or default_run_name(cfg)
-        return WandbLogger(
-            project=cfg.logger.project,
-            name=name,
-            tags=list(cfg.logger.tags) if cfg.logger.tags else None,
-            save_dir=cfg.logger.save_dir,
-            offline=cfg.logger.offline,
-        )
-    raise ValueError(f"Unknown logger.kind: {cfg.logger.kind}")
 
 
 @hydra.main(version_base=None, config_path="../../../conf", config_name="config")
@@ -138,7 +92,6 @@ def main(cfg: DictConfig) -> None:
     preprocessor = build_preprocessor(cfg)
     datamodule = build_datamodule(cfg)
     model = build_model(cfg, preprocessor)
-    logger = build_logger(cfg)
 
     trainer = pl.Trainer(
         max_epochs=cfg.trainer.max_epochs,
@@ -149,8 +102,8 @@ def main(cfg: DictConfig) -> None:
         gradient_clip_val=cfg.trainer.gradient_clip_val,
         fast_dev_run=cfg.trainer.fast_dev_run,
         deterministic=cfg.trainer.deterministic,
-        callbacks=build_callbacks(cfg),
-        logger=logger,
+        callbacks=[build_checkpoint_callback()],
+        logger=build_logger(cfg, default_run_name=default_run_name(cfg)),
     )
     ckpt_path = to_absolute_path(cfg.ckpt_path) if cfg.get("ckpt_path") else None
     trainer.fit(model, datamodule=datamodule, ckpt_path=ckpt_path)

@@ -20,13 +20,14 @@ from .preprocess import MelImagePreprocessor
 FreezeMode = Literal["linear_probe", "full_finetune"]
 
 
-def _build_backbone(pretrained: bool) -> tuple[nn.Module, int]:
+def _build_backbone(pretrained: bool) -> nn.Module:
+    """Pretrained EfficientNet-B3 with the final ``Linear(1536, 1000)`` replaced by a
+    binary head (``Linear(1536, 1)``)."""
     weights = EfficientNet_B3_Weights.IMAGENET1K_V1 if pretrained else None
     net = efficientnet_b3(weights=weights)
     in_features = net.classifier[1].in_features  # 1536 for B3
-    # Replace the final Linear(1536 -> 1000) with Linear(1536 -> 1)
     net.classifier[1] = nn.Linear(in_features, 1)
-    return net, in_features
+    return net
 
 
 class BaselineEfficientNet(pl.LightningModule):
@@ -43,7 +44,7 @@ class BaselineEfficientNet(pl.LightningModule):
         super().__init__()
         self.save_hyperparameters(ignore=["preprocessor"])
         self.preprocessor = preprocessor
-        self.net, _ = _build_backbone(pretrained=pretrained)
+        self.net = _build_backbone(pretrained=pretrained)
         self._apply_freeze_mode(freeze_mode)
 
         self.loss_fn = nn.BCEWithLogitsLoss()

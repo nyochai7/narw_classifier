@@ -1,10 +1,10 @@
-"""Train the linear probe on cached Perch embeddings.
+"""Hydra-driven training entrypoint for the Perch v2 linear probe.
 
-Run (after extracting embeddings)::
+Run (after extracting embeddings via ``narw_classifier.perch.extract``)::
 
     uv run python -m narw_classifier.perch.train
 
-Continues a previous run via ``ckpt_path=...`` Hydra override.
+Continue a previous run via ``ckpt_path=...``.
 """
 
 from __future__ import annotations
@@ -15,66 +15,34 @@ from pathlib import Path
 
 import hydra
 import pytorch_lightning as pl
-from hydra.core.hydra_config import HydraConfig
 from hydra.utils import to_absolute_path
 from omegaconf import DictConfig, OmegaConf
-from pytorch_lightning.callbacks import ModelCheckpoint
 
+from ..utils.lightning import build_checkpoint_callback, build_logger, format_lr
 from .datamodule import PerchEmbeddingsDataModule
 from .linear_probe import PerchLinearProbe
 
 log = logging.getLogger(__name__)
 
 
-def _format_lr(lr: float) -> str:
-    mantissa, exp = f"{lr:.2e}".split("e")
-    mantissa = mantissa.rstrip("0").rstrip(".")
-    return f"{mantissa}e{int(exp)}"
+def _cache_dir(cfg: DictConfig) -> Path:
+    """Resolve the embedding cache subdir for the current ``(split, pitch_shift)``."""
+    shift_tag = f"pitch_shift_{int(cfg.preprocess.pitch_shift_semitones)}"
+    return Path(to_absolute_path(cfg.embeddings.cache_dir)) / cfg.data.split_strategy / shift_tag
 
 
 def default_run_name(cfg: DictConfig, now: datetime | None = None) -> str:
+    """W&B run name: ``perch_v2_linear_{shift_tag}_lr{lr}_bs{bs}_e{epochs}_{HHMMSS}``."""
     ts = (now or datetime.now()).strftime("%H%M%S")
     shift = int(cfg.preprocess.pitch_shift_semitones)
     shift_tag = f"shift{shift}" if shift else "noshift"
     return (
         f"perch_v2_linear_{shift_tag}"
-        f"_lr{_format_lr(cfg.model.lr)}"
+        f"_lr{format_lr(cfg.model.lr)}"
         f"_bs{cfg.data.batch_size}"
         f"_e{cfg.trainer.max_epochs}"
         f"_{ts}"
     )
-
-
-def build_callbacks(cfg: DictConfig) -> list:
-    output_dir = Path(HydraConfig.get().runtime.output_dir)
-    return [
-        ModelCheckpoint(
-            dirpath=output_dir / "checkpoints",
-            filename="best",
-            monitor="val/auroc",
-            mode="max",
-            save_top_k=1,
-            save_last=True,
-            auto_insert_metric_name=False,
-        ),
-    ]
-
-
-def build_logger(cfg: DictConfig):
-    if cfg.logger.kind == "none":
-        return False
-    if cfg.logger.kind == "wandb":
-        from pytorch_lightning.loggers import WandbLogger
-
-        name = cfg.logger.run_name or default_run_name(cfg)
-        return WandbLogger(
-            project=cfg.logger.project,
-            name=name,
-            tags=list(cfg.logger.tags) if cfg.logger.tags else None,
-            save_dir=cfg.logger.save_dir,
-            offline=cfg.logger.offline,
-        )
-    raise ValueError(f"Unknown logger.kind: {cfg.logger.kind}")
 
 
 @hydra.main(version_base=None, config_path="../../../conf", config_name="perch_config")
@@ -82,12 +50,8 @@ def main(cfg: DictConfig) -> None:
     log.info("Resolved config:\n%s", OmegaConf.to_yaml(cfg, resolve=True))
     pl.seed_everything(cfg.seed, workers=True)
 
-    shift_tag = f"pitch_shift_{int(cfg.preprocess.pitch_shift_semitones)}"
-    cache_dir = (
-        Path(to_absolute_path(cfg.embeddings.cache_dir)) / cfg.data.split_strategy / shift_tag
-    )
     datamodule = PerchEmbeddingsDataModule(
-        cache_dir=cache_dir,
+        cache_dir=_cache_dir(cfg),
         batch_size=cfg.data.batch_size,
         num_workers=cfg.data.num_workers,
         balanced_train_sampler=cfg.data.balanced_train_sampler,
@@ -108,8 +72,8 @@ def main(cfg: DictConfig) -> None:
         gradient_clip_val=cfg.trainer.gradient_clip_val,
         fast_dev_run=cfg.trainer.fast_dev_run,
         deterministic=cfg.trainer.deterministic,
-        callbacks=build_callbacks(cfg),
-        logger=build_logger(cfg),
+        callbacks=[build_checkpoint_callback()],
+        logger=build_logger(cfg, default_run_name=default_run_name(cfg)),
     )
     ckpt_path = to_absolute_path(cfg.ckpt_path) if cfg.get("ckpt_path") else None
     trainer.fit(model, datamodule=datamodule, ckpt_path=ckpt_path)

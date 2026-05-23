@@ -12,22 +12,12 @@ from narw_classifier.perch.preprocess import PERCH_N_SAMPLES
 
 
 class _StubEmbedder:
-    """Returns embeddings whose first element matches the count of input clips
-    seen in the batch. Lets us verify nothing is dropped or duplicated."""
-
-    def __init__(self) -> None:
-        self.calls = 0
+    """Returns deterministic zero embeddings of the right shape. Used to exercise
+    the extract loop end-to-end without the 380 MB Perch ONNX model."""
 
     def embed(self, batch: np.ndarray) -> np.ndarray:
         assert batch.ndim == 2 and batch.shape[1] == PERCH_N_SAMPLES
-        self.calls += 1
-        n = batch.shape[0]
-        out = np.zeros((n, 1536), dtype=np.float32)
-        # Encode batch position into the first dim so we can spot ordering issues
-        out[:, 0] = (
-            np.arange(n) + (self.calls - 1) * batch.shape[0] * 0
-        )  # not relied on; placeholder
-        return out
+        return np.zeros((batch.shape[0], 1536), dtype=np.float32)
 
 
 class TestPerchPreprocessDataset:
