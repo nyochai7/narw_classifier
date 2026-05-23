@@ -13,11 +13,14 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
+from pathlib import Path
 
 import hydra
 import pytorch_lightning as pl
+from hydra.core.hydra_config import HydraConfig
 from hydra.utils import to_absolute_path
 from omegaconf import DictConfig, OmegaConf
+from pytorch_lightning.callbacks import ModelCheckpoint
 
 from ..data.datamodule import NARWDataModule
 from ..models.baseline import BaselineEfficientNet
@@ -92,6 +95,22 @@ def default_run_name(cfg: DictConfig, now: datetime | None = None) -> str:
     )
 
 
+def build_callbacks(cfg: DictConfig) -> list:
+    """Save `best.ckpt` (highest val/auroc) + `last.ckpt` (for resume) into the Hydra run dir."""
+    output_dir = Path(HydraConfig.get().runtime.output_dir)
+    return [
+        ModelCheckpoint(
+            dirpath=output_dir / "checkpoints",
+            filename="best",
+            monitor="val/auroc",
+            mode="max",
+            save_top_k=1,
+            save_last=True,
+            auto_insert_metric_name=False,
+        ),
+    ]
+
+
 def build_logger(cfg: DictConfig):
     if cfg.logger.kind == "none":
         return False
@@ -129,9 +148,11 @@ def main(cfg: DictConfig) -> None:
         gradient_clip_val=cfg.trainer.gradient_clip_val,
         fast_dev_run=cfg.trainer.fast_dev_run,
         deterministic=cfg.trainer.deterministic,
+        callbacks=build_callbacks(cfg),
         logger=logger,
     )
-    trainer.fit(model, datamodule=datamodule)
+    ckpt_path = to_absolute_path(cfg.ckpt_path) if cfg.get("ckpt_path") else None
+    trainer.fit(model, datamodule=datamodule, ckpt_path=ckpt_path)
 
 
 if __name__ == "__main__":

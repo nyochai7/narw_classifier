@@ -11,6 +11,11 @@ defaults:
 
 seed: 42
 
+# Resume training from a saved checkpoint, e.g.
+#   ckpt_path=outputs/2026-05-23/10-42-17/checkpoints/last.ckpt
+# Resolved against the original CWD via hydra.utils.to_absolute_path.
+ckpt_path: null
+
 hydra:
   run:
     dir: outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}
