@@ -145,7 +145,8 @@ def main(cfg: DictConfig) -> None:
 
     onnx_path = download_perch_onnx(onnx_dir, filename=cfg.embeddings.onnx_file)
     log.info("Loading Perch ONNX from %s", onnx_path)
-    embedder = PerchEmbedder(onnx_path)
+    providers = list(cfg.embeddings.providers) if cfg.embeddings.get("providers") else None
+    embedder = PerchEmbedder(onnx_path, providers=providers)
 
     for split_name, split_files, split_labels in [
         ("train", tr_files, tr_labels),

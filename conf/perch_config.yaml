@@ -20,6 +20,11 @@ embeddings:
   onnx_file: perch_v2.onnx
   batch_size: 64        # ONNX inference batch size; bigger = fewer fixed-cost ORT calls
   num_workers: 8        # parallel preprocessing workers (librosa pitch_shift is CPU-bound)
+  # ONNX providers, in priority order. `null` (default) auto-detects:
+  # CUDA on Linux GPU, CoreML on Mac, CPU fallback. CoreML on Mac actually
+  # *slows* Perch v2 down (only 448 of 725 ops supported → partition overhead);
+  # set `embeddings.providers=[CPUExecutionProvider]` on Mac to skip it.
+  providers: null
 
 seed: 42
 ckpt_path: null
