@@ -53,6 +53,7 @@ def build_datamodule(cfg: DictConfig) -> NARWDataModule:
         target_duration_s=cfg.data.target_duration_s,
         val_fraction=cfg.data.val_fraction,
         split_seed=cfg.data.split_seed,
+        split_strategy=cfg.data.split_strategy,
         batch_size=cfg.data.batch_size,
         num_workers=cfg.data.num_workers,
         pin_memory=cfg.data.pin_memory,

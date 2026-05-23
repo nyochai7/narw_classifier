@@ -15,7 +15,7 @@ from torch.utils.data import DataLoader, WeightedRandomSampler
 
 from .dataset import NARWAudioDataset
 from .manifest import build_train_manifest
-from .splits import stratified_split
+from .splits import day_stratified_split, stratified_split
 
 
 def _make_balanced_sampler(labels: list[int], seed: int) -> WeightedRandomSampler:
@@ -41,6 +41,7 @@ class NARWDataModule(pl.LightningDataModule):
         target_duration_s: float = 2.0,
         val_fraction: float = 0.2,
         split_seed: int = 42,
+        split_strategy: str = "day_stratified",
         batch_size: int = 32,
         num_workers: int = 4,
         pin_memory: bool = True,
@@ -68,7 +69,16 @@ class NARWDataModule(pl.LightningDataModule):
         files, labels = build_train_manifest(self.train_dir)
         if len(files) == 0:
             raise RuntimeError(f"No labeled .aif files found in {self.train_dir}")
-        tr_files, tr_labels, va_files, va_labels = stratified_split(
+        if self.hparams.split_strategy == "day_stratified":
+            splitter = day_stratified_split
+        elif self.hparams.split_strategy == "random":
+            splitter = stratified_split
+        else:
+            raise ValueError(
+                f"Unknown split_strategy: {self.hparams.split_strategy!r} "
+                f"(expected 'day_stratified' or 'random')"
+            )
+        tr_files, tr_labels, va_files, va_labels = splitter(
             files=files,
             labels=labels,
             val_fraction=self.hparams.val_fraction,

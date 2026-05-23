@@ -1,11 +1,33 @@
 import pytest
 
-from narw_classifier.data.splits import stratified_split
+from narw_classifier.data.splits import day_stratified_split, stratified_split
 
 
 def _make_data(n_pos: int, n_neg: int) -> tuple[list[str], list[int]]:
     files = [f"pos_{i}.aif" for i in range(n_pos)] + [f"neg_{i}.aif" for i in range(n_neg)]
     labels = [1] * n_pos + [0] * n_neg
+    return files, labels
+
+
+def _make_dated_data(
+    dates_with_counts: dict[str, tuple[int, int]],
+) -> tuple[list[str], list[int]]:
+    """Build filenames following the real NARW pattern.
+
+    ``dates_with_counts``: ``{YYYYMMDD: (n_pos, n_neg)}``.
+    """
+    files: list[str] = []
+    labels: list[int] = []
+    idx = 0
+    for date, (n_pos, n_neg) in dates_with_counts.items():
+        for _ in range(n_pos):
+            files.append(f"{date}_000000_000s0ms_TRAIN{idx}_1.aif")
+            labels.append(1)
+            idx += 1
+        for _ in range(n_neg):
+            files.append(f"{date}_000000_000s0ms_TRAIN{idx}_0.aif")
+            labels.append(0)
+            idx += 1
     return files, labels
 
 
@@ -45,3 +67,65 @@ class TestStratifiedSplit:
     def test_length_mismatch_raises(self):
         with pytest.raises(ValueError):
             stratified_split(["a.aif", "b.aif"], [0], val_fraction=0.2, seed=0)
+
+
+class TestDayStratifiedSplit:
+    @staticmethod
+    def _dates_in(files: list[str]) -> set[str]:
+        return {f[:8] for f in files}
+
+    def test_no_date_overlap_between_train_and_val(self):
+        # 10 dates, each with 5 pos + 50 neg = 550 total clips
+        dates = {f"2009040{d}": (5, 50) for d in range(10)}
+        files, labels = _make_dated_data(dates)
+        tr_f, _, va_f, _ = day_stratified_split(files, labels, val_fraction=0.3, seed=0)
+        assert self._dates_in(tr_f).isdisjoint(self._dates_in(va_f))
+
+    def test_no_clip_overlap_and_full_coverage(self):
+        dates = {f"2009040{d}": (5, 50) for d in range(10)}
+        files, labels = _make_dated_data(dates)
+        tr_f, _, va_f, _ = day_stratified_split(files, labels, val_fraction=0.3, seed=0)
+        assert set(tr_f).isdisjoint(set(va_f))
+        assert set(tr_f) | set(va_f) == set(files)
+
+    def test_both_classes_present_in_both_splits(self):
+        dates = {f"2009040{d}": (5, 50) for d in range(10)}
+        files, labels = _make_dated_data(dates)
+        _, tr_y, _, va_y = day_stratified_split(files, labels, val_fraction=0.3, seed=0)
+        assert set(tr_y) == {0, 1}
+        assert set(va_y) == {0, 1}
+
+    def test_deterministic_with_same_seed(self):
+        dates = {f"2009040{d}": (5, 50) for d in range(10)}
+        files, labels = _make_dated_data(dates)
+        a = day_stratified_split(files, labels, val_fraction=0.3, seed=42)
+        b = day_stratified_split(files, labels, val_fraction=0.3, seed=42)
+        assert a == b
+
+    def test_different_seeds_give_different_date_partitions(self):
+        # 20 dates so there's enough room for distinct shuffles
+        dates = {f"200904{d:02d}": (3, 20) for d in range(1, 21)}
+        files, labels = _make_dated_data(dates)
+        _, _, va_a, _ = day_stratified_split(files, labels, val_fraction=0.3, seed=1)
+        _, _, va_b, _ = day_stratified_split(files, labels, val_fraction=0.3, seed=2)
+        assert self._dates_in(va_a) != self._dates_in(va_b)
+
+    def test_invalid_val_fraction_raises(self):
+        files, labels = _make_dated_data({"20090401": (5, 5), "20090402": (5, 5)})
+        with pytest.raises(ValueError):
+            day_stratified_split(files, labels, val_fraction=0.0, seed=0)
+        with pytest.raises(ValueError):
+            day_stratified_split(files, labels, val_fraction=1.0, seed=0)
+
+    def test_unparseable_filename_raises(self):
+        with pytest.raises(ValueError, match="parse date"):
+            day_stratified_split(["bogus.aif"], [1], val_fraction=0.2, seed=0)
+
+    def test_raises_when_a_class_missing_from_a_split(self):
+        # Construct an adversarial case: all positives on one date, all negatives elsewhere.
+        # Any day-level split will starve one side of a class.
+        files, labels = _make_dated_data(
+            {"20090401": (20, 0), "20090402": (0, 50), "20090403": (0, 50)}
+        )
+        with pytest.raises(RuntimeError, match="missing a class"):
+            day_stratified_split(files, labels, val_fraction=0.3, seed=0)

@@ -11,7 +11,12 @@ train_subdir: train2
 target_sample_rate: 2000
 target_duration_s: 2.0
 
-# Split
+# Split.
+# `split_strategy`: one of
+#   - `day_stratified`: clips from the same date land entirely in train OR val
+#     (avoids day-level leakage; recommended).
+#   - `random`: plain stratified random split by label (faster but leaks across days).
+split_strategy: day_stratified
 val_fraction: 0.2
 split_seed: 42
 
