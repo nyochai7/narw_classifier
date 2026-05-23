@@ -9,8 +9,19 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-import numpy as np
+# fmt: off
+# isort: off
+# `import torch` MUST run before `import onnxruntime` — torch's wheel ships the CUDA
+# runtime libs (libcublas.so.12, libcudnn.so.*) that onnxruntime-gpu needs at
+# session-creation time. On Lightning AI Studios there is no system CUDA toolkit,
+# so without this preload onnxruntime-gpu fails with:
+#     libcublas.so.12: cannot open shared object file: No such file or directory
+import torch  # noqa: F401
 import onnxruntime as ort
+# isort: on
+# fmt: on
+
+import numpy as np
 from huggingface_hub import hf_hub_download
 
 log = logging.getLogger(__name__)
