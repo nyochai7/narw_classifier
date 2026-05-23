@@ -36,12 +36,34 @@ def download_perch_onnx(
     return Path(p)
 
 
+_PREFERRED_PROVIDERS = (
+    "CUDAExecutionProvider",  # CUDA GPU (Lightning AI etc.) — needs onnxruntime-gpu
+    "CoreMLExecutionProvider",  # Apple Silicon (Mac)
+    "CPUExecutionProvider",  # fallback, always available
+)
+
+
+def _resolve_providers(available: list[str]) -> list[str]:
+    """Order ``available`` providers by ``_PREFERRED_PROVIDERS``; anything else trails."""
+    preferred = [p for p in _PREFERRED_PROVIDERS if p in available]
+    trailing = [p for p in available if p not in _PREFERRED_PROVIDERS]
+    return preferred + trailing
+
+
 class PerchEmbedder:
-    """Loads Perch v2 ONNX and returns 1536-d embeddings for batches of 5-s 32-kHz clips."""
+    """Loads Perch v2 ONNX and returns 1536-d embeddings for batches of 5-s 32-kHz clips.
+
+    The session is built with ``CUDAExecutionProvider`` preferred when present (Lightning
+    AI GPU instances with ``onnxruntime-gpu`` installed), falling back to CoreML on
+    Apple Silicon and CPU otherwise. The active provider list is logged at construction
+    time so you can confirm GPU is actually being used.
+    """
 
     def __init__(self, onnx_path: Path, providers: list[str] | None = None) -> None:
-        providers = providers or ort.get_available_providers()
+        if providers is None:
+            providers = _resolve_providers(ort.get_available_providers())
         self.session = ort.InferenceSession(str(onnx_path), providers=providers)
+        log.info("PerchEmbedder providers (in priority order): %s", self.session.get_providers())
         self._verify_io_contract()
 
     def _verify_io_contract(self) -> None:

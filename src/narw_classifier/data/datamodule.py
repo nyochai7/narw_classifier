@@ -45,6 +45,7 @@ class NARWDataModule(pl.LightningDataModule):
         self._train_ds: NARWAudioDataset | None = None
         self._val_ds: NARWAudioDataset | None = None
         self._train_labels: list[int] = []
+        self.val_files: list[str] = []
 
     def prepare_data(self) -> None:
         if not self.train_dir.is_dir():
@@ -72,6 +73,7 @@ class NARWDataModule(pl.LightningDataModule):
             seed=self.hparams.split_seed,
         )
         self._train_labels = tr_labels
+        self.val_files = list(va_files)
         self._train_ds = NARWAudioDataset(
             files=tr_files,
             labels=tr_labels,

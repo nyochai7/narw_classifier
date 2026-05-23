@@ -36,6 +36,7 @@ class PerchEmbeddingsDataModule(pl.LightningDataModule):
         self._train_ds: TensorDataset | None = None
         self._val_ds: TensorDataset | None = None
         self._train_labels: np.ndarray | None = None
+        self.val_files: list[str] = []
 
     def prepare_data(self) -> None:
         for name in ("train.npz", "val.npz"):
@@ -49,8 +50,9 @@ class PerchEmbeddingsDataModule(pl.LightningDataModule):
         if self._train_ds is not None and self._val_ds is not None:
             return
         tr_emb, tr_lab, _ = load_split(self.cache_dir / "train.npz")
-        va_emb, va_lab, _ = load_split(self.cache_dir / "val.npz")
+        va_emb, va_lab, va_files = load_split(self.cache_dir / "val.npz")
         self._train_labels = tr_lab
+        self.val_files = va_files
         self._train_ds = TensorDataset(
             torch.from_numpy(tr_emb).float(),
             torch.from_numpy(tr_lab).long(),

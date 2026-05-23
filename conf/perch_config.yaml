@@ -18,7 +18,7 @@ embeddings:
   cache_dir: data/embeddings/perch_v2
   onnx_dir: data/models
   onnx_file: perch_v2.onnx
-  batch_size: 16        # ONNX inference batch size (CPU memory: 16 * 160k * 4B = 10 MB)
+  batch_size: 64        # ONNX inference batch size; bigger = fewer fixed-cost ORT calls
   num_workers: 8        # parallel preprocessing workers (librosa pitch_shift is CPU-bound)
 
 seed: 42

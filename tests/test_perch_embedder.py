@@ -8,11 +8,35 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from narw_classifier.perch.embedder import DEFAULT_ONNX_FILE, EMBEDDING_DIM, PerchEmbedder
+from narw_classifier.perch.embedder import (
+    DEFAULT_ONNX_FILE,
+    EMBEDDING_DIM,
+    PerchEmbedder,
+    _resolve_providers,
+)
 
 _MODELS_DIR = Path(__file__).resolve().parents[1] / "data" / "models"
 _ONNX_PATH = _MODELS_DIR / DEFAULT_ONNX_FILE
 _HAVE_MODEL = _ONNX_PATH.exists()
+
+
+class TestResolveProviders:
+    def test_prefers_cuda_over_cpu_when_both_available(self):
+        out = _resolve_providers(["CPUExecutionProvider", "CUDAExecutionProvider"])
+        assert out[0] == "CUDAExecutionProvider"
+
+    def test_prefers_coreml_over_cpu_on_mac(self):
+        out = _resolve_providers(["CPUExecutionProvider", "CoreMLExecutionProvider"])
+        assert out[0] == "CoreMLExecutionProvider"
+
+    def test_cpu_only_returns_cpu(self):
+        assert _resolve_providers(["CPUExecutionProvider"]) == ["CPUExecutionProvider"]
+
+    def test_unknown_providers_trail_known_ones(self):
+        out = _resolve_providers(["UnknownEP", "CPUExecutionProvider", "CUDAExecutionProvider"])
+        assert out[0] == "CUDAExecutionProvider"
+        assert out[1] == "CPUExecutionProvider"
+        assert "UnknownEP" in out
 
 
 @pytest.mark.skipif(not _HAVE_MODEL, reason=f"{_ONNX_PATH} not present; skip ONNX integration")

@@ -18,6 +18,7 @@ import pytorch_lightning as pl
 from hydra.utils import to_absolute_path
 from omegaconf import DictConfig, OmegaConf
 
+from ..analysis.callback import EvalArtifactsCallback
 from ..utils.lightning import build_checkpoint_callback, build_logger, format_lr
 from .datamodule import PerchEmbeddingsDataModule
 from .linear_probe import PerchLinearProbe
@@ -72,7 +73,7 @@ def main(cfg: DictConfig) -> None:
         gradient_clip_val=cfg.trainer.gradient_clip_val,
         fast_dev_run=cfg.trainer.fast_dev_run,
         deterministic=cfg.trainer.deterministic,
-        callbacks=[build_checkpoint_callback()],
+        callbacks=[build_checkpoint_callback(), EvalArtifactsCallback()],
         logger=build_logger(cfg, default_run_name=default_run_name(cfg)),
     )
     ckpt_path = to_absolute_path(cfg.ckpt_path) if cfg.get("ckpt_path") else None
