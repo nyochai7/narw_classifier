@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 import torch
 
-from narw_classifier.data.dataset import NARWAudioDataset
+from narw_classifier.dataset.dataset import NARWAudioDataset
 
 
 class TestNARWAudioDataset:

@@ -3,7 +3,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from narw_classifier.data.embeddings_cache import load_full_cache, load_split, save_split
+from narw_classifier.dataset.embeddings_cache import load_full_cache, load_split, save_split
 
 
 class TestSaveLoadRoundtrip:

@@ -36,8 +36,8 @@ from hydra.utils import to_absolute_path
 from omegaconf import DictConfig, OmegaConf
 
 from ..analysis.callback import EvalArtifactsCallback
-from ..data.datamodule import NARWDataModule
-from ..data.perch_datamodule import PerchEmbeddingsDataModule
+from ..dataset.datamodule import NARWDataModule
+from ..dataset.perch_datamodule import PerchEmbeddingsDataModule
 from ..models.baseline import BaselineEfficientNet
 from ..models.perch_linear_probe import PerchLinearProbe
 from ..models.preprocess import MelImagePreprocessor

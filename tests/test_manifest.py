@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from narw_classifier.data.manifest import build_train_manifest
+from narw_classifier.dataset.manifest import build_train_manifest
 
 
 class TestBuildTrainManifest:

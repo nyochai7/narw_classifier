@@ -1,6 +1,6 @@
 import pytest
 
-from narw_classifier.data.splits import day_stratified_split_3way, stratified_split_3way
+from narw_classifier.dataset.splits import day_stratified_split_3way, stratified_split_3way
 
 
 def _make_data(n_pos: int, n_neg: int) -> tuple[list[str], list[int]]:

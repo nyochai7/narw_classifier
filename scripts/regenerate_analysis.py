@@ -65,7 +65,7 @@ def _infer_pipeline(cfg: DictConfig) -> str:
 
 
 def _build_efficientnet(cfg: DictConfig):
-    from narw_classifier.data.datamodule import NARWDataModule
+    from narw_classifier.dataset.datamodule import NARWDataModule
     from narw_classifier.models.baseline import BaselineEfficientNet
     from narw_classifier.models.preprocess import MelImagePreprocessor
 
@@ -96,7 +96,7 @@ def _build_efficientnet(cfg: DictConfig):
 
 
 def _build_perch(cfg: DictConfig):
-    from narw_classifier.data.perch_datamodule import PerchEmbeddingsDataModule
+    from narw_classifier.dataset.perch_datamodule import PerchEmbeddingsDataModule
     from narw_classifier.models.perch_linear_probe import PerchLinearProbe
 
     shift_tag = f"pitch_shift_{int(cfg.preprocess.pitch_shift_semitones)}"

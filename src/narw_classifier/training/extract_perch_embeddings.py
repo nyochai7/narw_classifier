@@ -31,9 +31,9 @@ from omegaconf import DictConfig, OmegaConf
 from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
 
-from ..data.embeddings_cache import save_split
-from ..data.manifest import build_train_manifest
-from ..data.perch_preprocess import preprocess_for_perch
+from ..dataset.embeddings_cache import save_split
+from ..dataset.manifest import build_train_manifest
+from ..dataset.perch_preprocess import preprocess_for_perch
 from ..models.perch_embedder import PerchEmbedder, download_perch_onnx
 
 log = logging.getLogger(__name__)
