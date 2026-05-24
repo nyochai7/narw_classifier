@@ -5,12 +5,6 @@
 root: data/raw
 train_subdir: train2
 
-# Native 2 kHz, 2 s clips — what the dataset already provides. No resampling for the
-# EfficientNet baseline. The Perch pipeline (separate, scaffolded later) handles its own
-# resample + pitch-shift.
-target_sample_rate: 2000
-target_duration_s: 2.0
-
 # Split.
 # `split_strategy`: one of
 #   - `day_stratified`: clips from the same date land entirely in train, val OR test

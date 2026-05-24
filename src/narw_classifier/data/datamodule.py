@@ -1,11 +1,11 @@
 """LightningDataModule for the NARW upcall dataset.
 
-Three-way split (train / val / test). Train loader uses a ``WeightedRandomSampler``
-so each batch is class-balanced (addresses the ~8:1 imbalance). Val + test loaders
-use the natural class distribution.
+Three-way day-stratified (or random) split. Train loader uses a
+``WeightedRandomSampler`` so each batch is class-balanced (the dataset is ~8:1
+negative-to-positive); val + test loaders use the natural class distribution.
 
 The held-out test set is the honest reportable number — never touched during
-training / hyperparameter selection.
+training or hyperparameter selection.
 """
 
 from __future__ import annotations
@@ -31,8 +31,6 @@ class NARWDataModule(pl.LightningDataModule):
         self,
         data_root: str | Path,
         train_subdir: str = "train2",
-        target_sample_rate: int = 2000,
-        target_duration_s: float = 2.0,
         val_fraction: float = 0.15,
         test_fraction: float = 0.15,
         split_seed: int = 42,
@@ -61,15 +59,6 @@ class NARWDataModule(pl.LightningDataModule):
                 f"(set data.root / data.train_subdir in your Hydra config)"
             )
 
-    def _make_dataset(self, files, labels) -> NARWAudioDataset:
-        return NARWAudioDataset(
-            files=files,
-            labels=labels,
-            data_dir=self.train_dir,
-            target_sample_rate=self.hparams.target_sample_rate,
-            target_duration_s=self.hparams.target_duration_s,
-        )
-
     def setup(self, stage: str | None = None) -> None:
         if self._train_ds is not None and self._val_ds is not None and self._test_ds is not None:
             return
@@ -93,9 +82,9 @@ class NARWDataModule(pl.LightningDataModule):
         self._train_labels = tr_y
         self.val_files = list(va_f)
         self.test_files = list(te_f)
-        self._train_ds = self._make_dataset(tr_f, tr_y)
-        self._val_ds = self._make_dataset(va_f, va_y)
-        self._test_ds = self._make_dataset(te_f, te_y)
+        self._train_ds = NARWAudioDataset(tr_f, tr_y, self.train_dir)
+        self._val_ds = NARWAudioDataset(va_f, va_y, self.train_dir)
+        self._test_ds = NARWAudioDataset(te_f, te_y, self.train_dir)
 
     def _make_loader(
         self, ds, *, shuffle: bool, sampler=None, drop_last: bool = False

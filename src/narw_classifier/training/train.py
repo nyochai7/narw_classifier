@@ -74,8 +74,6 @@ def _build_efficientnet(cfg: DictConfig) -> tuple[pl.LightningDataModule, pl.Lig
     datamodule = NARWDataModule(
         data_root=to_absolute_path(cfg.data.root),
         train_subdir=cfg.data.train_subdir,
-        target_sample_rate=cfg.preprocess.sample_rate,
-        target_duration_s=cfg.data.target_duration_s,
         val_fraction=cfg.data.val_fraction,
         test_fraction=cfg.data.test_fraction,
         split_seed=cfg.data.split_seed,

@@ -83,9 +83,8 @@ def _build_efficientnet(cfg: DictConfig):
     datamodule = NARWDataModule(
         data_root=str(Path(cfg.data.root).expanduser().resolve()),
         train_subdir=cfg.data.train_subdir,
-        target_sample_rate=cfg.preprocess.sample_rate,
-        target_duration_s=cfg.data.target_duration_s,
         val_fraction=cfg.data.val_fraction,
+        test_fraction=cfg.data.get("test_fraction", 0.15),
         split_seed=cfg.data.split_seed,
         split_strategy=cfg.data.get("split_strategy", "day_stratified"),
         batch_size=cfg.data.batch_size,

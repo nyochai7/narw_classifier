@@ -1,16 +1,15 @@
-"""Deterministic train/val and train/val/test splits for the NARW dataset.
+"""Deterministic train/val/test splits for the NARW dataset.
 
-Two strategies, each with a 2-way (train/val) and a 3-way (train/val/test) variant:
+Two strategies:
 
-- ``stratified_split`` / ``stratified_split_3way``: random, stratified by label.
-  Simplest, but clips from the same recording date can land in multiple splits,
-  inflating the metrics on the held-out side.
-- ``day_stratified_split`` / ``day_stratified_split_3way``: every clip from a
-  given date lands in exactly one split. Avoids the day-level leakage above.
+- ``stratified_split_3way``: random, stratified by label. Simplest, but clips
+  from the same recording date can land in multiple splits, inflating the
+  metrics on the held-out side.
+- ``day_stratified_split_3way``: every clip from a given date lands in
+  exactly one split. Avoids the day-level leakage above.
 
-The 3-way variants are what the codebase uses for the final reportable test
-metrics; the 2-way functions are kept for the embedding extraction pipeline
-(which writes train.npz + val.npz) and for backward compatibility.
+Both produce a (train, val, test) triple sized so ``val_fraction`` and
+``test_fraction`` are fractions *of the original total*.
 """
 
 from __future__ import annotations
@@ -28,72 +27,6 @@ def _group_for(file: str) -> str:
         raise ValueError(f"Could not parse date from filename: {file}")
     return parsed.date
 
-
-# ---------------------------------------------------------------------------
-# 2-way splits (train / val)
-# ---------------------------------------------------------------------------
-
-
-def stratified_split(
-    files: Sequence[str],
-    labels: Sequence[int],
-    val_fraction: float,
-    seed: int,
-) -> tuple[list[str], list[int], list[str], list[int]]:
-    """Stratified random split into train / val. Returns ``(tr_f, tr_y, va_f, va_y)``."""
-    if not 0.0 < val_fraction < 1.0:
-        raise ValueError(f"val_fraction must be in (0, 1); got {val_fraction}")
-    if len(files) != len(labels):
-        raise ValueError(f"files and labels length mismatch: {len(files)} vs {len(labels)}")
-
-    train_files, val_files, train_labels, val_labels = train_test_split(
-        list(files),
-        list(labels),
-        test_size=val_fraction,
-        random_state=seed,
-        stratify=list(labels),
-        shuffle=True,
-    )
-    return train_files, train_labels, val_files, val_labels
-
-
-def day_stratified_split(
-    files: Sequence[str],
-    labels: Sequence[int],
-    val_fraction: float,
-    seed: int,
-) -> tuple[list[str], list[int], list[str], list[int]]:
-    """Day-grouped split into train / val. Returns ``(tr_f, tr_y, va_f, va_y)``."""
-    if not 0.0 < val_fraction < 1.0:
-        raise ValueError(f"val_fraction must be in (0, 1); got {val_fraction}")
-    if len(files) != len(labels):
-        raise ValueError(f"files and labels length mismatch: {len(files)} vs {len(labels)}")
-
-    files = list(files)
-    labels = list(labels)
-    groups = [_group_for(f) for f in files]
-
-    gss = GroupShuffleSplit(n_splits=1, test_size=val_fraction, random_state=seed)
-    train_idx, val_idx = next(gss.split(X=files, y=labels, groups=groups))
-
-    train_files = [files[i] for i in train_idx]
-    train_labels = [labels[i] for i in train_idx]
-    val_files = [files[i] for i in val_idx]
-    val_labels = [labels[i] for i in val_idx]
-
-    if len(set(train_labels)) < 2:
-        raise RuntimeError(
-            "day_stratified_split: train side missing a class — try a different seed"
-        )
-    if len(set(val_labels)) < 2:
-        raise RuntimeError("day_stratified_split: val side missing a class — try a different seed")
-
-    return train_files, train_labels, val_files, val_labels
-
-
-# ---------------------------------------------------------------------------
-# 3-way splits (train / val / test)
-# ---------------------------------------------------------------------------
 
 _SplitTriple = tuple[
     list[str],
@@ -136,7 +69,6 @@ def stratified_split_3way(
     files = list(files)
     labels = list(labels)
 
-    # Stage 1: rest vs test
     rest_files, test_files, rest_labels, test_labels = train_test_split(
         files,
         labels,
@@ -145,7 +77,6 @@ def stratified_split_3way(
         stratify=labels,
         shuffle=True,
     )
-    # Stage 2: train vs val (val_fraction is of original total; convert to fraction of rest)
     val_fraction_of_rest = val_fraction / (1.0 - test_fraction)
     train_files, val_files, train_labels, val_labels = train_test_split(
         rest_files,
@@ -175,7 +106,6 @@ def day_stratified_split_3way(
     labels = list(labels)
     groups = [_group_for(f) for f in files]
 
-    # Stage 1: rest vs test (test_fraction of original)
     gss1 = GroupShuffleSplit(n_splits=1, test_size=test_fraction, random_state=seed)
     rest_idx, test_idx = next(gss1.split(X=files, y=labels, groups=groups))
 
@@ -185,7 +115,6 @@ def day_stratified_split_3way(
     test_files = [files[i] for i in test_idx]
     test_labels = [labels[i] for i in test_idx]
 
-    # Stage 2: train vs val on the remainder
     val_fraction_of_rest = val_fraction / (1.0 - test_fraction)
     gss2 = GroupShuffleSplit(n_splits=1, test_size=val_fraction_of_rest, random_state=seed)
     train_idx, val_idx = next(gss2.split(X=rest_files, y=rest_labels, groups=rest_groups))

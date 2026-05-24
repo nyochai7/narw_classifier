@@ -4,12 +4,18 @@ Run::
 
     uv run python -m narw_classifier.training.extract_perch_embeddings
 
-One-time per (preprocess config, split config). Outputs:
-    {embeddings.cache_dir}/{split_strategy}/pitch_shift_{N}/{train,val}.npz
+One-time per ``pitch_shift_semitones`` value. Writes a single archive
 
-Preprocessing (resample + librosa pitch_shift + pad) is the bottleneck; it runs
-across `embeddings.num_workers` CPU processes via a PyTorch DataLoader, while
-ONNX inference stays serial in the main process.
+    {embeddings.cache_dir}/{split_strategy}/pitch_shift_{N}/all.npz
+
+containing every clip's embedding + label + filename. The actual train/val/test
+split happens at training time inside ``PerchEmbeddingsDataModule`` (which
+re-loads the file and splits on the fly via ``data.splits``), so swapping split
+strategies or fractions does NOT require re-extracting.
+
+Preprocessing (resample + librosa pitch_shift + pad) is the bottleneck; it
+runs across ``embeddings.num_workers`` CPU processes via a PyTorch
+DataLoader, while ONNX inference stays serial in the main process.
 """
 
 from __future__ import annotations
@@ -28,15 +34,9 @@ from tqdm import tqdm
 from ..data.embeddings_cache import save_split
 from ..data.manifest import build_train_manifest
 from ..data.perch_preprocess import preprocess_for_perch
-from ..data.splits import day_stratified_split, stratified_split
 from ..models.perch_embedder import PerchEmbedder, download_perch_onnx
 
 log = logging.getLogger(__name__)
-
-_SPLITTERS = {
-    "day_stratified": day_stratified_split,
-    "random": stratified_split,
-}
 
 
 class _PerchPreprocessDataset(Dataset):
@@ -92,11 +92,9 @@ def _extract_embeddings(
         pin_memory=False,
         persistent_workers=num_workers > 0,
     )
-    n = len(files)
-    out = np.zeros((n, 1536), dtype=np.float32)
+    out = np.zeros((len(files), 1536), dtype=np.float32)
     pos = 0
     for batch in tqdm(loader, desc="extract", total=len(loader)):
-        # default_collate gives us a torch.Tensor (B, n_samples)
         arr = batch.numpy() if isinstance(batch, torch.Tensor) else np.stack(batch)
         out[pos : pos + len(arr)] = embedder.embed(arr)
         pos += len(arr)
@@ -121,50 +119,26 @@ def main(cfg: DictConfig) -> None:
     files, labels = build_train_manifest(train_dir)
     if len(files) == 0:
         raise RuntimeError(f"No labeled .aif files found in {train_dir}")
-
-    splitter = _SPLITTERS.get(cfg.data.split_strategy)
-    if splitter is None:
-        raise ValueError(
-            f"Unknown split_strategy: {cfg.data.split_strategy!r} "
-            f"(expected one of {sorted(_SPLITTERS)!r})"
-        )
-    tr_files, tr_labels, va_files, va_labels = splitter(
-        files=files,
-        labels=labels,
-        val_fraction=cfg.data.val_fraction,
-        seed=cfg.data.split_seed,
-    )
-    log.info(
-        "Split: train=%d (pos=%d), val=%d (pos=%d)",
-        len(tr_files),
-        sum(tr_labels),
-        len(va_files),
-        sum(va_labels),
-    )
+    log.info("Manifest: %d clips (pos=%d)", len(files), sum(labels))
 
     onnx_path = download_perch_onnx(onnx_dir, filename=cfg.embeddings.onnx_file)
     log.info("Loading Perch ONNX from %s", onnx_path)
     providers = list(cfg.embeddings.providers) if cfg.embeddings.get("providers") else None
     embedder = PerchEmbedder(onnx_path, providers=providers)
 
-    for split_name, split_files, split_labels in [
-        ("train", tr_files, tr_labels),
-        ("val", va_files, va_labels),
-    ]:
-        log.info("Extracting %s (%d clips)...", split_name, len(split_files))
-        emb = _extract_embeddings(
-            embedder,
-            train_dir,
-            split_files,
-            pitch_shift_semitones=cfg.preprocess.pitch_shift_semitones,
-            sample_rate=cfg.preprocess.sample_rate,
-            n_samples=cfg.preprocess.n_samples,
-            batch_size=cfg.embeddings.batch_size,
-            num_workers=cfg.embeddings.num_workers,
-        )
-        out_file = cache_dir / f"{split_name}.npz"
-        save_split(out_file, emb, np.array(split_labels), split_files)
-        log.info("Wrote %s (shape=%s)", out_file, emb.shape)
+    emb = _extract_embeddings(
+        embedder,
+        train_dir,
+        files,
+        pitch_shift_semitones=cfg.preprocess.pitch_shift_semitones,
+        sample_rate=cfg.preprocess.sample_rate,
+        n_samples=cfg.preprocess.n_samples,
+        batch_size=cfg.embeddings.batch_size,
+        num_workers=cfg.embeddings.num_workers,
+    )
+    out_file = cache_dir / "all.npz"
+    save_split(out_file, emb, np.array(labels), files)
+    log.info("Wrote %s (shape=%s)", out_file, emb.shape)
 
 
 if __name__ == "__main__":
