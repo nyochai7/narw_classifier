@@ -44,7 +44,7 @@ uv run pytest          # 92 meaningful tests covering every module
 
 ## Running experiments
 
-The three experiments used for the report are wired into a single script:
+The four experiments used for the report are wired into a single script:
 
 ```bash
 bash scripts/run_experiments.sh
@@ -57,19 +57,16 @@ Or one at a time:
 uv run python -m narw_classifier.training.train \
     model=efficientnet_b3_linear_probe trainer.max_epochs=10
 
-# Experiment 2 (or 3, swap the pitch shift): Perch v2 linear probe
+# Experiment 2: EfficientNet-B3 full fine-tune, 10 epochs
+uv run python -m narw_classifier.training.train \
+    model=efficientnet_b3_full_finetune trainer.max_epochs=10
+
+# Experiment 3 (or 4, swap the pitch shift): Perch v2 linear probe, 100 epochs
 uv run python -m narw_classifier.training.extract_perch_embeddings \
     preprocess.pitch_shift_semitones=0          # or 36
 uv run python -m narw_classifier.training.train --config-name=perch_config \
-    preprocess.pitch_shift_semitones=0          # or 36
-    trainer.max_epochs=10
-```
-
-To do a full fine-tune of the EfficientNet baseline instead of just the head:
-
-```bash
-uv run python -m narw_classifier.training.train \
-    model=efficientnet_b3_full_finetune trainer.max_epochs=10
+    preprocess.pitch_shift_semitones=0 \        # or 36
+    trainer.max_epochs=100
 ```
 
 Each run produces:
@@ -124,7 +121,7 @@ uv run python -m narw_classifier.training.train \
 │   └── utils/                         # filenames, lightning helpers, balanced sampler
 ├── tests/                             # pytest — every module has tests
 ├── notebooks/                         # data exploration + error analysis
-├── scripts/run_experiments.sh         # runs all three experiments end-to-end
+├── scripts/run_experiments.sh         # runs all four experiments end-to-end
 └── CLAUDE.md                          # contract this codebase was built under
 ```
 
